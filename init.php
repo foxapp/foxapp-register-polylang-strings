@@ -4,7 +4,7 @@
 Plugin Name: FoxApp - Register Polylang Strings
 Plugin URI: https://plugins.foxapp.net/foxapp-register-polylang-strings
 Description: Plugin adds functionality to save strings to have possibility to translate on Polylang Strings option.
-Version: 1.0.0
+Version: 1.0.1
 Author: FoxApp
 Author URI: https://plugins.foxapp.net/
 Requires at least: 6.1
@@ -365,3 +365,13 @@ class RegisterPllStrings {
 }
 
 new RegisterPllStrings();
+
+// Init Fox App GitHub Updater for current Plugin File
+add_action(
+	'plugins_loaded',
+	function () {
+		if ( class_exists( 'FoxApp\GitHub\Init' ) ) {
+			new \FoxApp\GitHub\Init( __FILE__ );
+		}
+	}
+);
