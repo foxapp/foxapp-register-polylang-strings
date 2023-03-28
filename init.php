@@ -4,14 +4,13 @@
 Plugin Name: FoxApp - Register Polylang Strings
 Plugin URI: https://plugins.foxapp.net/foxapp-register-polylang-strings
 Description: Plugin adds functionality to save strings to have possibility to translate on Polylang Strings option.
-Version: 1.0.1
+Version: 1.0.2
 Author: FoxApp
 Author URI: https://plugins.foxapp.net/
 Requires at least: 6.1
 Requires PHP: >= 7.4
 Text Domain: foxapp-register-polylang-strings
 Domain Path: /languages
-
 */
 
 namespace FoxApp;
@@ -36,11 +35,9 @@ class RegisterPllStrings {
 
 		if ( get_option( 'enabled' . $this->plugin_identifier ) ) {
 			add_action( 'init', [ $this, 'init' ] );
-			add_shortcode( '_text', [ $this, 'translated_text_with_polylang' ] );
-			//add_action( 'foxapp_sync_custom_post_by_api_event', [ $this, 'init' ] );
-			//wp_schedule_event( time(), 'daily', 'foxapp_sync_custom_post_by_api_event' );
 		}
 
+		add_shortcode( '_text', [ $this, 'translated_text_with_polylang' ] );
 		add_action( 'admin_menu', [ $this, 'adminMenu' ] );
 	}
 
@@ -207,7 +204,7 @@ class RegisterPllStrings {
 			update_option( 'enabled' . $this->plugin_identifier, sanitize_text_field( $_POST['enabled'] ?? 0 ), 'yes' );
             $registered_strings = $_POST['registered_strings'] ?? "[]";
 
-            if(is_array($_POST['registered_strings'])){
+            if(isset($_POST['registered_strings']) && is_array($_POST['registered_strings'])){
 	            $registered_strings  = array_values($_POST['registered_strings']);
                 $tmp_array = [];
                 foreach($registered_strings as $tmp){
@@ -219,8 +216,11 @@ class RegisterPllStrings {
 	            $registered_strings  = $tmp_array;
             }
             if( isset($_POST['registered_new_strings']) && !empty($_POST['registered_new_strings'][0]['string']) ){
-
-	            $registered_strings = array_merge($registered_strings, $_POST['registered_new_strings']);
+                if(is_array($registered_strings)){
+	                $registered_strings = array_merge($registered_strings, $_POST['registered_new_strings']);
+                }else{
+	                $registered_strings = $_POST['registered_new_strings'];
+                }
             }
 			update_option( 'registered_strings' . $this->plugin_identifier, json_encode( $registered_strings ), 'yes' );
 		}
@@ -229,10 +229,6 @@ class RegisterPllStrings {
 		$registered_strings = get_option( 'registered_strings' . $this->plugin_identifier, "[]" );
 		$registered_strings = json_decode( $registered_strings, true );
 
-		//echo '<pre>';
-		//var_dump( $registered_strings );
-		//echo '</pre>';
-		//die();
 		?>
         <form method="post">
 			<?php wp_nonce_field( $action . '_nonce_action', $action . '_nonce_field' ); ?>
@@ -250,12 +246,12 @@ class RegisterPllStrings {
                                                                                        name="enabled"
                                                                                        value="1" <?php checked( $enabled, 1 ) ?>
                                                                                        class="regular-text">
+                            <p style="padding-top: 0;padding-left:10px" class="description">To use this text already translated you need to use it in shortcode <strong>[_text text='Name']</strong></p>
                         </td>
                     </tr>
                     <tr>
                         <td colspan="2">
-                            <table style="width:100%;padding:10px;background-color: #f4f4f4"
-                            ">
+                            <table style="width:100%;padding:10px;background-color: #f4f4f4">
                     <tbody>
                     <tr>
                         <td><strong><?php _e( 'String', $this->plugin_text_domain ) ?></strong></td>
@@ -264,6 +260,7 @@ class RegisterPllStrings {
                     </tr>
 					<?php
 					$count_strings = 0;
+                    if(is_array($registered_strings)){
 					foreach ( $registered_strings as $index => $string ) {
 						$count_strings ++;
 						?>
@@ -281,13 +278,13 @@ class RegisterPllStrings {
                             <td>
                                 <input style="width: 100%" type="text" readonly
                                        name="registered_strings[<?php echo $index ?>][group]"
-                                       value="<?php echo $string['group'] ?? 'FoxApp Register String'; ?>">
+                                       value="<?php echo $string['group'] ?? 'FoxApp'; ?>">
                             </td>
                             <td class="remove_strings_button">
                                 <i class="dashicons dashicons-trash" style="cursor:pointer" title="<?php _e( 'Delete current string', $this->plugin_text_domain ) ?>"></i>
                             </td>
                         </tr>
-					<?php } ?>
+					<?php } } ?>
 
                     <tr>
                         <td>
@@ -301,7 +298,7 @@ class RegisterPllStrings {
                         <td>
                             <input style="width: 100%;border-color: #ff7900" type="text" placeholder="New Group"
                                    name="registered_new_strings[0][group]" readonly
-                                   value="FoxApp Register String">
+                                   value="FoxApp">
                         </td>
                         <td>
                             <i class="dashicons dashicons-plus" style="cursor:pointer;color: #ff7900"
