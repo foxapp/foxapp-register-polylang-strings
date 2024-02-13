@@ -4,7 +4,7 @@
 Plugin Name: FoxApp - Register Polylang Strings
 Plugin URI: https://plugins.foxapp.net/foxapp-register-polylang-strings
 Description: Plugin adds functionality to save strings to have possibility to translate on Polylang Strings option.
-Version: 1.0.4
+Version: 1.0.5
 Author: FoxApp
 Author URI: https://plugins.foxapp.net/
 Requires at least: 6.1
@@ -25,7 +25,9 @@ class RegisterPllStrings {
 	public string $plugin_identifier;
 
 	public function __construct() {
-
+		if ( ! function_exists( 'get_plugin_data' ) ) {
+			require_once( ABSPATH . 'wp-admin/includes/plugin.php' );
+		}
 		$this->plugin             = get_plugin_data( __FILE__ );
 		$this->plugin_slug        = basename( __FILE__, '.php' );
 		$this->plugin_text_domain = $this->plugin['TextDomain'];
