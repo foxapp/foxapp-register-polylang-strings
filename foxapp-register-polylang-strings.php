@@ -4,7 +4,7 @@
 Plugin Name: FoxApp - Register Polylang Strings
 Plugin URI: https://plugins.foxapp.net/foxapp-register-polylang-strings
 Description: Plugin adds functionality to save strings to have possibility to translate on Polylang Strings option.
-Version: 1.0.5
+Version: 1.0.6
 Author: FoxApp
 Author URI: https://plugins.foxapp.net/
 Requires at least: 6.1
@@ -41,6 +41,15 @@ class RegisterPllStrings {
 
 		add_shortcode( '_text', [ $this, 'translated_text_with_polylang' ] );
 		add_action( 'admin_menu', [ $this, 'adminMenu' ] );
+		add_action( 'admin_notices_saved_options', [ $this, 'admin_notices_saved_options_method' ] );
+	}
+
+	public function admin_notices_saved_options_method(): void {
+		$class   = 'notice notice-success';
+		$notify  = __( 'Imported!', $this->plugin_text_domain );
+		$message = __( 'Strings are imported with success.', $this->plugin_text_domain );
+
+		printf( '<div class="%1$s"><p><strong>%2$s</strong> %3$s</p></div>', esc_attr( $class ), esc_html( $notify ), esc_html( $message ) );
 	}
 
 	public function adminMenu() {
@@ -130,6 +139,12 @@ class RegisterPllStrings {
                 .<?php echo $currentClass; ?> .input-translatable {
                     border: 2px solid green !important;
                 }
+
+                .<?php echo $currentClass; ?> .strings_import,
+                .<?php echo $currentClass; ?> .strings_export {
+                   width: 100%;
+                   min-height: 200px;
+                }
             </style>
 
             <h1><?php echo esc_html( get_admin_page_title() ); ?><sup>ver. <?php echo $this->plugin['Version'] ?></sup>
@@ -144,6 +159,12 @@ class RegisterPllStrings {
 						'tab_title' => __( 'Registered Strings', $this->plugin_text_domain ),
 						'page'      => $this->plugin_slug,
 						'tab_slug'  => 'register_settings'
+					],
+					[
+						'tab_icon'  => '<i class="dashicons dashicons-backup"></i>',
+						'tab_title' => __( 'Import/Export Strings', $this->plugin_text_domain ),
+						'page'      => $this->plugin_slug,
+						'tab_slug'  => 'import_export_settings'
 					]
 				];
 
@@ -165,6 +186,7 @@ class RegisterPllStrings {
 				if ( ! $current_tab_exists ) {
 					$current_tab = $tabs[0]['tab_slug'];
 				}
+
 				foreach ( $tabs as $tab_index => $tab ) {
 					$tab_url = '?' . http_build_query( [ 'page' => $tab['page'], 'tab' => $tab['tab_slug'] ] );
 					?>
@@ -181,6 +203,10 @@ class RegisterPllStrings {
             <div class="tab-content">
 				<?php switch ( $current_tab ) :
 
+					case 'import_export_settings':
+						$this->getRegisteredStringsImportExport();
+						break;
+
 					default:
 						$this->getRegisteredStringsUi();
 						break;
@@ -188,6 +214,76 @@ class RegisterPllStrings {
 				endswitch; ?>
             </div>
         </div>
+		<?php
+	}
+
+	public function getRegisteredStringsImportExport() {
+		if ( ! current_user_can( 'manage_options' ) ) {
+			return;
+		}
+		$action = 'get_import_export_strings_action';
+
+		if (
+			isset( $_POST['action'] ) && $_POST['action'] === $action &&
+			isset( $_POST[ $action . '_nonce_field' ] ) &&
+			wp_verify_nonce( $_POST[ $action . '_nonce_field' ], $action . '_nonce_action' )
+		) {
+			//Save Settings
+            echo 'Current Action for Import/Export'.PHP_EOL;
+            $import_strings = json_decode(stripslashes($_POST['strings_import']), true);
+
+			if(isset($_POST['strings_import']) && is_array($import_strings)){
+				$registered_strings  = array_values($import_strings);
+				$tmp_array = [];
+				foreach($registered_strings as $tmp){
+					if( empty(trim($tmp['string']))){
+						continue;
+					}
+					$tmp_array[] = $tmp;
+				}
+				$registered_strings  = $tmp_array;
+			}
+			update_option( 'registered_strings' . $this->plugin_identifier, json_encode( $registered_strings ), 'yes' );
+			do_action( 'admin_notices_saved_options' );
+		}
+		$registered_strings = get_option( 'registered_strings' . $this->plugin_identifier, "[]" );
+		$registered_strings = json_decode( $registered_strings, true );
+		?>
+
+        <table class="form-table register_strings">
+            <tbody>
+            <tr>
+                <td class="outer" style="vertical-align: top">
+                    <h2><label for="strings_import"><?php _e( 'Import Strings', $this->plugin_text_domain ) ?></label></h2>
+
+                    <form method="post">
+                        <input type="hidden" name="action" value="<?php echo $action; ?>">
+                        <textarea class="strings_import" placeholder="Paste content here." id="strings_import" name="strings_import"></textarea>
+
+                        <p class="wp-ui-highlight">
+	                        <?php _e( '<strong>Note:</strong> Importing will overwrite previous registered strings.', $this->plugin_text_domain ) ?>
+                        </p>
+                        <p>
+                            <strong><?php _e( 'To import strings from a different WordPress site, paste the exported content from that site and click the "Import" button.', $this->plugin_text_domain ) ?></strong>
+                        </p>
+
+                        <p>
+                            <input class="button button-primary" type="submit" value="<?php _e( "Import", $this->plugin_text_domain ) ?>">
+                        </p>
+	                    <?php wp_nonce_field( $action . '_nonce_action', $action . '_nonce_field' ); ?>
+                    </form>
+                </td>
+                <td class="outer" style="vertical-align: top">
+                    <h2><label for="strings_export"><?php _e( 'Export Strings', $this->plugin_text_domain ) ?></label></h2>
+                    <textarea title="To copy the system info, click below then press Ctrl + C (PC) or Cmd + C (Mac)." onclick="this.focus();this.select();" onfocus="this.focus();this.select();" readonly="readonly" aria-readonly="true" class="strings_export" id="strings_export" name="strings_export"><?php echo json_encode($registered_strings, JSON_FORCE_OBJECT)?></textarea>
+
+                    <p>
+                        <strong><?php _e( 'Use the content above to import current strings into a different WordPress site. You can also use this to simply back up your strings.', $this->plugin_text_domain ) ?></strong>
+                    </p>
+                </td>
+            </tr>
+            </tbody>
+        </table>
 		<?php
 	}
 
